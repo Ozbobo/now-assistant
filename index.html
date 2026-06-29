@@ -1,0 +1,57 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+  <title>NOW</title>
+
+  <!-- PWA / Add to Home Screen -->
+  <meta name="apple-mobile-web-app-capable" content="yes" />
+  <meta name="mobile-web-app-capable" content="yes" />
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+  <meta name="apple-mobile-web-app-title" content="NOW" />
+  <meta name="theme-color" content="#14171A" />
+  <link rel="manifest" href="manifest.webmanifest" />
+  <link rel="apple-touch-icon" href="icon.svg" />
+  <link rel="icon" href="icon.svg" type="image/svg+xml" />
+
+  <link rel="stylesheet" href="style.css" />
+</head>
+<body>
+  <div class="wrap">
+    <header class="masthead">
+      <h1>NOW</h1>
+      <span class="clock" id="clock">—</span>
+    </header>
+
+    <!-- RIGHT NOW -->
+    <section class="card now-card" id="now-card">
+      <div class="now-head">
+        <span class="eyebrow">Right Now</span>
+        <span class="now-tag" id="now-tag"></span>
+      </div>
+      <div class="range" id="now-range"></div>
+      <div class="activity" id="now-activity"></div>
+      <p class="note" id="now-note"></p>
+    </section>
+
+    <!-- UP NEXT -->
+    <section class="card next-card">
+      <span class="eyebrow">Up Next</span>
+      <div class="range" id="next-range"></div>
+      <div class="activity" id="next-activity"></div>
+      <p class="note" id="next-note"></p>
+    </section>
+
+    <!-- TODAY'S TASKS -->
+    <h2 class="section-title">Today's Tasks</h2>
+    <div class="task-list" id="task-list"></div>
+
+    <button class="refresh" id="refresh-btn" type="button">↻ Refresh</button>
+  </div>
+
+  <script src="supabase.js"></script>
+  <script src="schedule.js"></script>
+  <script src="app.js"></script>
+</body>
+</html>

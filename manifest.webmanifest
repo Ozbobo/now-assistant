@@ -1,0 +1,19 @@
+{
+  "name": "NOW",
+  "short_name": "NOW",
+  "description": "What I should be doing right now.",
+  "start_url": "./index.html",
+  "scope": "./",
+  "display": "standalone",
+  "orientation": "portrait",
+  "background_color": "#F2EDE3",
+  "theme_color": "#14171A",
+  "icons": [
+    {
+      "src": "icon.svg",
+      "sizes": "any",
+      "type": "image/svg+xml",
+      "purpose": "any maskable"
+    }
+  ]
+}

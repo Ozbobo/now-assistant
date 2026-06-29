@@ -1,0 +1,255 @@
+/* style.css — NOW assistant. Mobile-first, warm editorial look. */
+
+:root {
+  --paper: #F2EDE3;   /* warm cream background */
+  --ink: #14171A;     /* near-black text */
+  --ink-soft: #4A4A48;/* muted text */
+  --rule: #1C1C1C;    /* dividers */
+  --hot: #FF5A1F;     /* electric tangerine (TikTok / accent) */
+  --green: #1B4D3E;   /* deep emerald (training tag) */
+  --slate: #4A5568;   /* slate (Meta / monitor) */
+  --sand: #B8A88A;    /* warm tan (weekend rest) */
+  --sun: #E8B92E;     /* warm gold (weekend setup) */
+  --night: #0F1419;   /* deep navy (sleep state) */
+  --done: #9CA39C;    /* completed task text */
+
+  --display: -apple-system, "SF Pro Display", BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+  --text: -apple-system, "SF Pro Text", BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+}
+
+* { box-sizing: border-box; margin: 0; padding: 0; }
+
+html { -webkit-text-size-adjust: 100%; }
+
+body {
+  background: var(--paper);
+  color: var(--ink);
+  font-family: var(--text);
+  line-height: 1.45;
+  -webkit-font-smoothing: antialiased;
+  padding: 22px;
+  /* respect the iPhone notch / home indicator when added to home screen */
+  padding-top: max(22px, env(safe-area-inset-top));
+  padding-bottom: max(40px, env(safe-area-inset-bottom));
+}
+
+.wrap {
+  max-width: 720px;
+  margin: 0 auto;
+}
+
+/* ── Masthead ───────────────────────────────────────────────────────────── */
+.masthead {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  border-bottom: 2px solid var(--rule);
+  padding-bottom: 12px;
+  margin-bottom: 22px;
+}
+.masthead h1 {
+  font-family: var(--display);
+  font-weight: 800;
+  font-size: 34px;
+  letter-spacing: -0.035em;
+}
+.masthead .clock {
+  font-family: var(--display);
+  font-weight: 700;
+  font-size: 16px;
+  letter-spacing: -0.01em;
+  color: var(--ink-soft);
+  font-variant-numeric: tabular-nums;
+}
+
+/* ── Cards ──────────────────────────────────────────────────────────────── */
+.card {
+  border-radius: 18px;
+  padding: 26px 24px;
+  margin-bottom: 18px;
+}
+
+.eyebrow {
+  font-family: var(--display);
+  font-weight: 800;
+  font-size: 12px;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+}
+
+.card .range {
+  font-variant-numeric: tabular-nums;
+  font-size: 14px;
+  font-weight: 600;
+  margin-top: 4px;
+  opacity: 0.7;
+}
+
+.card .activity {
+  font-family: var(--display);
+  font-weight: 800;
+  letter-spacing: -0.035em;
+  line-height: 1.05;
+  margin: 10px 0 8px;
+}
+
+.card .note { font-size: 15px; }
+
+/* NOW — hero card, default dark ink state */
+.now-card {
+  background: var(--ink);
+  color: var(--paper);
+}
+.now-card .eyebrow { color: var(--hot); }
+.now-card .activity { font-size: 38px; }
+.now-card .note { opacity: 0.82; }
+
+.now-head {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: 12px;
+}
+.now-tag {
+  flex: none;
+  font-family: var(--display);
+  font-weight: 700;
+  font-size: 11px;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  padding: 5px 10px;
+  border-radius: 999px;
+  background: var(--green);
+  color: var(--paper);
+  white-space: nowrap;
+}
+
+/* NOW card state: sleep → deep navy */
+.now-card.kind-sleep { background: var(--night); }
+.now-card.kind-sleep .eyebrow { color: var(--sand); }
+
+/* NOW card state: weekend midday rest → sand, dark text */
+.now-card.kind-rest {
+  background: var(--sand);
+  color: var(--ink);
+}
+.now-card.kind-rest .eyebrow { color: var(--ink); }
+.now-card.kind-rest .note { opacity: 0.75; }
+.now-card.kind-rest .now-tag { background: var(--ink); color: var(--paper); }
+
+/* UP NEXT — lighter card */
+.next-card {
+  background: #fff;
+  border: 1.5px solid rgba(28, 28, 28, 0.12);
+}
+.next-card .eyebrow { color: var(--ink-soft); }
+.next-card .activity { font-size: 22px; }
+.next-card .note { color: var(--ink-soft); }
+
+/* ── Task list ──────────────────────────────────────────────────────────── */
+.section-title {
+  font-family: var(--display);
+  font-weight: 800;
+  font-size: 13px;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: var(--ink-soft);
+  margin: 28px 4px 12px;
+}
+
+.task-list { display: flex; flex-direction: column; gap: 2px; }
+
+.task-row {
+  /* it's a <button> — strip native styling */
+  width: 100%;
+  text-align: left;
+  background: none;
+  border: none;
+  font: inherit;
+  color: inherit;
+  cursor: pointer;
+
+  display: flex;
+  align-items: flex-start;
+  gap: 14px;
+  padding: 14px 6px;
+  border-bottom: 1px solid rgba(28, 28, 28, 0.1);
+  -webkit-tap-highlight-color: transparent;
+}
+.task-row:active { background: rgba(28, 28, 28, 0.04); }
+
+.checkbox {
+  flex: none;
+  width: 20px;
+  height: 20px;
+  margin-top: 2px;
+  border: 1.5px solid var(--ink);
+  border-radius: 3px;
+  position: relative;
+  transition: background 0.12s ease;
+}
+.task-row.done .checkbox { background: var(--ink); }
+.task-row.done .checkbox::after {
+  content: '';
+  position: absolute;
+  left: 6px;
+  top: 2px;
+  width: 5px;
+  height: 10px;
+  border: solid var(--paper);
+  border-width: 0 2px 2px 0;
+  transform: rotate(45deg);
+}
+
+.task-text { display: flex; flex-direction: column; gap: 2px; flex: 1; min-width: 0; }
+.task-title { font-size: 16px; font-weight: 600; letter-spacing: -0.01em; }
+.task-note { font-size: 13px; color: var(--ink-soft); }
+
+.task-row.done .task-title {
+  color: var(--done);
+  text-decoration: line-through;
+}
+.task-row.done .task-note { color: var(--done); }
+
+/* Tag chips — color-coding only */
+.tag {
+  flex: none;
+  align-self: center;
+  font-family: var(--display);
+  font-weight: 700;
+  font-size: 10px;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  padding: 4px 8px;
+  border-radius: 999px;
+  color: #fff;
+}
+.tag-tiktok  { background: var(--hot); }
+.tag-meta    { background: var(--slate); }
+.tag-weekend { background: var(--sun); color: var(--ink); }
+
+/* ── Refresh button ─────────────────────────────────────────────────────── */
+.refresh {
+  display: block;
+  margin: 30px auto 0;
+  font-family: var(--display);
+  font-weight: 700;
+  font-size: 14px;
+  letter-spacing: 0.04em;
+  color: var(--ink);
+  background: none;
+  border: 1.5px solid var(--ink);
+  border-radius: 999px;
+  padding: 12px 26px;
+  cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
+}
+.refresh:active { background: var(--ink); color: var(--paper); }
+.refresh.spin { opacity: 0.5; }
+
+/* ── Larger screens ─────────────────────────────────────────────────────── */
+@media (min-width: 600px) {
+  body { padding-left: 28px; padding-right: 28px; }
+  .masthead h1 { font-size: 40px; }
+  .now-card .activity { font-size: 44px; }
+}
