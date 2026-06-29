@@ -43,15 +43,22 @@
       <p class="note" id="next-note"></p>
     </section>
 
+    <!-- CARRIED OVER (rendered only when there are carryover tasks) -->
+    <div id="carryover-block"></div>
+
     <!-- TODAY'S TASKS -->
     <h2 class="section-title">Today's Tasks</h2>
     <div class="task-list" id="task-list"></div>
+
+    <!-- THIS WEEK -->
+    <h2 class="section-title">This Week</h2>
+    <div class="calendar" id="calendar"></div>
 
     <button class="refresh" id="refresh-btn" type="button">↻ Refresh</button>
   </div>
 
   <script src="supabase.js"></script>
-  <script src="schedule.js"></script>
+  <script src="tasks.js"></script>
   <script src="app.js"></script>
 </body>
 </html>

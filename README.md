@@ -1,28 +1,31 @@
 # NOW
 
 A single-page personal web app that tells me what I should be doing **right now**
-based on the day and time, lets me check off the day's tasks, and persists those
-checkmarks to Supabase so they survive refreshes and sync across devices.
+based on the day and time, shows my day's tasks (with suggested times), carries
+unfinished tasks forward, and lays the whole week out in a calendar. Check-offs
+persist to Supabase so they survive refreshes and sync across devices.
 
 Mobile-first. Built to live on the iPhone home screen as a PWA. No framework,
 no build step — just static files.
+
+**Live:** https://ozbobo.github.io/now-assistant/
 
 ---
 
 ## Files
 
-| File                   | Purpose                                                        |
-|------------------------|---------------------------------------------------------------|
-| `index.html`           | Markup + PWA meta tags                                         |
-| `style.css`            | Design tokens, NOW-card states, checkbox styling              |
-| `schedule.js`          | **Data only** — time blocks, training types, per-day tasks    |
-| `app.js`               | Engine — computes "now", renders, check-offs, minute tick     |
-| `supabase.js`          | Supabase URL + key + 3 REST helpers (fail-silent if offline)  |
-| `manifest.webmanifest` | PWA manifest                                                  |
-| `icon.svg`             | App icon                                                      |
-| `schema.sql`           | Supabase table + RLS policies                                 |
+| File                   | Purpose                                                          |
+|------------------------|------------------------------------------------------------------|
+| `index.html`           | Markup + PWA meta tags                                            |
+| `style.css`            | Design tokens, card states, checkbox/calendar styling            |
+| `tasks.js`             | **Data only** — time blocks, per-day tasks + suggested times     |
+| `app.js`               | Engine — now/next, today list, carryover, calendar, sync         |
+| `supabase.js`          | Supabase URL + key + REST helpers (fail-silent if offline)       |
+| `manifest.webmanifest` | PWA manifest                                                     |
+| `icon.svg`             | App icon                                                         |
+| `schema.sql`           | Supabase `task_instances` table + RLS policies                   |
 
-To change the schedule or tasks, edit **`schedule.js`** — it's plain data.
+To change the schedule or tasks, edit **`tasks.js`** — it's plain data.
 
 ---
 
@@ -30,88 +33,80 @@ To change the schedule or tasks, edit **`schedule.js`** — it's plain data.
 
 ### 1. Supabase
 
-The URL and key are already wired into `supabase.js`. You just need to create
-the table:
+The URL and key are already wired into `supabase.js`. Create the table:
 
 1. Open your project → **SQL Editor** → **New query**.
 2. Paste the contents of [`schema.sql`](./schema.sql) and click **Run**.
 
-That creates the `task_completions` table, an index, enables Row Level Security,
-and adds policies letting the `anon` (publishable) key read/insert/delete
-completions. Safe to re-run.
+That creates `task_instances`, its indexes, enables Row Level Security, and adds
+policies letting the `anon` (publishable) key read/insert/update rows. Safe to
+re-run. (It also drops the old v1 `task_completions` table, which held no data.)
 
 > The publishable key in `supabase.js` is meant to be public — that's what it's
 > for. Access is constrained by the RLS policies. Never put the `service_role`
 > key in this repo.
 
-To point at a different project, edit the two constants at the top of
-`supabase.js`:
+Until you run this, the app still works — check-offs just stay in memory and
+don't persist (you'll see fail-silent `404` warnings in the console).
 
-```js
-const SUPABASE_URL = 'https://<your-project>.supabase.co';
-const SUPABASE_KEY = 'sb_publishable_...';
-```
+### 2. Deploy to GitHub Pages
 
-### 2. Deploy to GitHub Pages (via `gh` CLI)
-
-From this folder. Requires the [GitHub CLI](https://cli.github.com/) authenticated
-(`gh auth login`).
+Already deployed at the live URL above. To push updates:
 
 ```bash
-git init
 git add .
-git commit -m "NOW assistant"
-
-# Create the repo (private is fine — Pages still serves it) and push.
-gh repo create now-assistant --private --source=. --push
-
-# Turn on GitHub Pages from the main branch, root directory.
-gh api -X POST repos/{owner}/now-assistant/pages \
-  -f "source[branch]=main" -f "source[path]=/"
-
-# Get the live URL (give Pages ~30–60s to build first).
-gh api repos/{owner}/now-assistant/pages --jq .html_url
+git commit -m "your message"
+git push
 ```
 
-Replace `{owner}` with your GitHub username (or run `gh api user --jq .login`).
-The live URL looks like `https://<username>.github.io/now-assistant/`.
-
-> If `gh api ... /pages` returns 409/404 the first time, wait a moment and
-> re-run — Pages provisioning can lag a few seconds after the push.
+GitHub Pages rebuilds automatically (~30–60s). Pages requires a **public** repo
+on the free plan.
 
 ### 3. Add to iPhone home screen
 
-1. Open the live URL in **Safari**.
-2. Tap **Share** → **Add to Home Screen**.
-3. Launch it from the icon — it opens full-screen, no browser chrome.
+Open the live URL in **Safari** → **Share** → **Add to Home Screen**.
 
 ---
 
 ## How it works
 
-- **Now / Up next** are computed from the device's local clock (`new Date()`),
-  so the time zone is always yours — nothing is hardcoded.
-- **Check a box** → upserts a row `(task_key, today)` to Supabase.
-  **Uncheck** → deletes it.
-- **On load** → fetches today's completions and applies the checked state.
-  The schedule renders instantly; the DB sync happens in the background.
-- **Every minute** the "now" block recomputes. Crossing **midnight** rebuilds
-  the task list for the new day and clears yesterday's checkmarks from view
-  (the old rows stay in the DB as history).
-- **Offline / Supabase down** → fails silently. Checkboxes still work locally
-  (in memory); the next check/uncheck made while online syncs.
+- **Now / Up next** are computed from the device's local clock (`new Date()`).
+- **Today's Tasks** show the day's tasks sorted by **suggested time**, each with
+  a checkbox. Checking upserts a `task_instances` row (`completed_at = now()`).
+- **Carryover** — any task from an earlier day that's still open (not completed,
+  not dismissed) appears in a **Carried Over** block at the top of today, tagged
+  and labelled with its original date. Completing or dismissing it clears it.
+- **Dismiss** — skip a task without completing it. Carryover tasks always show a
+  `×`; today's tasks reveal one on **long-press** (~0.5s). Dismissing sets
+  `dismissed_at` so the task won't carry forward or reappear.
+- **This Week** — a 7-day calendar (Mon–Sun). Today is highlighted with a
+  `TODAY` pill; past days fade and show a `X of Y completed · Z carried forward`
+  summary; future days look normal. Checking a task anywhere (today list or
+  calendar) updates everywhere — it's one in-memory source of truth.
+- **Every minute** the now block recomputes. Crossing **midnight** rebuilds the
+  day and re-pulls instances; yesterday's completed tasks drop off, unfinished
+  ones become carryover.
+- **Offline / Supabase down** → fails silently. Everything works in memory; the
+  next action made while online syncs.
+
+### How carryover is tracked
+
+On load, the app **upserts an instance row for each of today's tasks** (with
+`completed_at`/`dismissed_at` null). That's what lets an untouched task be
+detected as "open" tomorrow. Carryover therefore covers any day the app was
+opened; a day you never opened the app won't generate carryover.
 
 ---
 
 ## Editing the schedule
 
-Everything lives in `schedule.js`:
+Everything lives in `tasks.js`:
 
-- `WEEKDAY_BLOCKS` / `WEEKEND_BLOCKS` — the time blocks. Times are
-  minutes-from-midnight via the `H(hour, minute)` helper.
+- `WEEKDAY_BLOCKS` / `WEEKEND_BLOCKS` — the NOW/next time blocks. Times use the
+  `H(hour, minute)` helper (minutes-from-midnight).
 - `TRAINING_BY_DAY` — which training fills the 10:00–13:00 weekday slot.
-- `DAY_LABEL` — the tag shown on the NOW card.
+- `DAY_LABEL` — the tag shown on the NOW card and calendar days.
 - `TASKS_BY_DAY` — the checkable tasks per weekday. Each needs a stable, unique
-  `key` (it's the DB primary identifier — changing a key orphans old history).
-
-Tags (`tiktok` / `meta` / `weekend`) are color-coding only.
+  `key` (the DB identifier — changing it orphans history), a `tag`
+  (`tiktok` / `meta` / `weekend`, color-coding only), and a `time`
+  (suggested time in minutes, via `H()`), used for sorting and display.

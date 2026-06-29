@@ -247,6 +247,141 @@ body {
 .refresh:active { background: var(--ink); color: var(--paper); }
 .refresh.spin { opacity: 0.5; }
 
+/* ── Task rows: time + meta (v2) ─────────────────────────────────────────── */
+.task-row { position: relative; }
+
+.task-line { display: flex; align-items: baseline; gap: 10px; flex-wrap: wrap; }
+.task-time {
+  font-family: var(--display);
+  font-variant-numeric: tabular-nums;
+  font-weight: 700;
+  font-size: 13px;
+  letter-spacing: -0.01em;
+  color: var(--ink-soft);
+  white-space: nowrap;
+}
+.task-meta { display: block; font-size: 13px; color: var(--ink-soft); margin-top: 3px; }
+
+.task-row.done .task-time { color: var(--done); }
+.task-row.done .task-meta { color: var(--done); }
+
+/* Dismiss (×) — flex item at the right. Today rows append it on long-press. */
+.dismiss {
+  flex: none;
+  align-self: center;
+  width: 30px;
+  height: 30px;
+  font-size: 22px;
+  line-height: 1;
+  color: var(--ink-soft);
+  background: none;
+  border: none;
+  border-radius: 50%;
+  cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
+}
+.dismiss:active { background: rgba(28, 28, 28, 0.08); }
+
+/* ── Carryover ──────────────────────────────────────────────────────────── */
+.carried-title { color: var(--hot); margin-top: 6px; }
+
+.task-row.carryover {
+  border-left: 3px solid var(--hot);
+  border-bottom: 1px solid rgba(28, 28, 28, 0.1);
+  background: rgba(255, 90, 31, 0.06);
+  padding-left: 12px;
+  border-radius: 0 8px 8px 0;
+}
+.tag-carried { background: var(--hot); color: #fff; }
+
+/* ── Calendar ───────────────────────────────────────────────────────────── */
+.calendar { display: flex; flex-direction: column; gap: 14px; margin-bottom: 6px; }
+
+.cal-day {
+  border: 1.5px solid rgba(28, 28, 28, 0.12);
+  border-radius: 14px;
+  padding: 14px 16px;
+  background: #fff;
+}
+.cal-today {
+  border: 2px solid var(--ink);
+  box-shadow: 0 3px 0 rgba(20, 23, 26, 0.12);
+}
+.cal-past { background: transparent; border-color: rgba(28, 28, 28, 0.08); }
+.cal-past .cal-date,
+.cal-past .cal-time,
+.cal-past .cal-title { color: var(--ink-soft); }
+
+.cal-head {
+  display: flex; align-items: center; justify-content: space-between;
+  gap: 8px; margin-bottom: 8px;
+}
+.cal-date {
+  font-family: var(--display);
+  font-weight: 800;
+  font-size: 14px;
+  letter-spacing: -0.02em;
+}
+.today-pill {
+  font-family: var(--display);
+  font-weight: 800; font-size: 10px; letter-spacing: 0.08em;
+  background: var(--hot); color: #fff;
+  padding: 2px 7px; border-radius: 999px; margin-left: 7px;
+}
+.cal-tag {
+  font-family: var(--display);
+  font-weight: 700; font-size: 10px; letter-spacing: 0.06em;
+  text-transform: uppercase; color: var(--ink-soft); white-space: nowrap;
+}
+
+.cal-rows { display: flex; flex-direction: column; }
+.cal-row {
+  display: flex; align-items: center; gap: 10px;
+  padding: 8px 0;
+  border-top: 1px solid rgba(28, 28, 28, 0.07);
+  -webkit-tap-highlight-color: transparent;
+}
+.cal-row:first-child { border-top: none; }
+.cal-row.tappable { cursor: pointer; }
+.cal-row.tappable:active { background: rgba(28, 28, 28, 0.04); }
+
+.cal-time {
+  font-variant-numeric: tabular-nums;
+  font-size: 12px; font-weight: 700; color: var(--ink-soft);
+  min-width: 64px;
+}
+.cal-title { flex: 1; font-size: 14px; min-width: 0; }
+.cal-row.done .cal-title { color: var(--done); text-decoration: line-through; }
+
+.dot { width: 8px; height: 8px; border-radius: 50%; flex: none; }
+.dot-tiktok { background: var(--hot); }
+.dot-meta { background: var(--slate); }
+.dot-weekend { background: var(--sun); }
+
+.cal-summary { margin-top: 10px; font-size: 12px; font-weight: 600; color: var(--ink-soft); }
+.cal-empty { font-size: 13px; color: var(--ink-soft); padding: 4px 0; }
+
+/* Calendar checkbox — slightly smaller than the Today list's 20px box. */
+.cal-row .checkbox {
+  width: 18px; height: 18px; margin-top: 0;
+  flex: none;
+  border: 1.5px solid var(--ink);
+  border-radius: 3px;
+  position: relative;
+}
+.cal-past .cal-row .checkbox { border-color: rgba(28, 28, 28, 0.3); }
+.cal-row.done .checkbox { background: var(--ink); }
+.cal-row.done .checkbox::after {
+  content: '';
+  position: absolute;
+  left: 5px; top: 2px;
+  width: 5px; height: 9px;
+  border: solid var(--paper);
+  border-width: 0 2px 2px 0;
+  transform: rotate(45deg);
+}
+.cal-past .cal-row.done .checkbox { background: var(--ink-soft); }
+
 /* ── Larger screens ─────────────────────────────────────────────────────── */
 @media (min-width: 600px) {
   body { padding-left: 28px; padding-right: 28px; }
