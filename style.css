@@ -382,6 +382,98 @@ body {
 }
 .cal-past .cal-row.done .checkbox { background: var(--ink-soft); }
 
+/* ── Voice check-off: floating mic ──────────────────────────────────────── */
+.mic {
+  position: fixed;
+  right: 20px;
+  bottom: max(20px, env(safe-area-inset-bottom));
+  width: 56px;
+  height: 56px;
+  border-radius: 50%;
+  border: none;
+  background: var(--ink);
+  color: var(--paper);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  box-shadow: 0 6px 18px rgba(20, 23, 26, 0.28);
+  cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
+  z-index: 50;
+  transition: background 0.15s ease, transform 0.1s ease;
+}
+.mic[hidden] { display: none; }
+.mic:active { transform: scale(0.94); }
+.mic .mic-glyph { width: 26px; height: 26px; }
+
+/* listening — hot accent + outward pulse */
+.mic.listening { background: var(--hot); }
+.mic.listening::before {
+  content: '';
+  position: absolute;
+  inset: -6px;
+  border-radius: 50%;
+  border: 2px solid var(--hot);
+  animation: micpulse 1.2s ease-out infinite;
+}
+@keyframes micpulse {
+  0%   { transform: scale(0.85); opacity: 0.7; }
+  100% { transform: scale(1.35); opacity: 0; }
+}
+
+/* processing — slate + spinner ring (glyph hidden) */
+.mic.processing { background: var(--slate); }
+.mic.processing .mic-glyph { opacity: 0; }
+.mic.processing::after {
+  content: '';
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  width: 22px;
+  height: 22px;
+  margin: -11px 0 0 -11px;
+  border-radius: 50%;
+  border: 2.5px solid rgba(242, 237, 227, 0.35);
+  border-top-color: var(--paper);
+  animation: micspin 0.7s linear infinite;
+}
+@keyframes micspin { to { transform: rotate(360deg); } }
+
+/* ── Toasts ─────────────────────────────────────────────────────────────── */
+.toast-wrap {
+  position: fixed;
+  top: max(16px, env(safe-area-inset-top));
+  left: 0;
+  right: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 8px;
+  padding: 0 16px;
+  z-index: 60;
+  pointer-events: none;
+}
+.toast {
+  width: fit-content;
+  max-width: min(440px, 100%);
+  font-family: var(--display);
+  font-weight: 600;
+  font-size: 14px;
+  letter-spacing: -0.01em;
+  text-align: center;
+  color: var(--paper);
+  background: var(--ink);
+  padding: 12px 18px;
+  border-radius: 12px;
+  box-shadow: 0 6px 18px rgba(20, 23, 26, 0.28);
+  opacity: 0;
+  transform: translateY(-10px);
+  transition: opacity 0.2s ease, transform 0.2s ease;
+}
+.toast.show { opacity: 1; transform: translateY(0); }
+.toast.success { background: var(--green); }
+.toast.error   { background: var(--hot); }
+
 /* ── Larger screens ─────────────────────────────────────────────────────── */
 @media (min-width: 600px) {
   body { padding-left: 28px; padding-right: 28px; }

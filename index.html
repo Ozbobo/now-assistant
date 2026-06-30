@@ -57,6 +57,20 @@
     <button class="refresh" id="refresh-btn" type="button">↻ Refresh</button>
   </div>
 
+  <!-- Voice check-off — floating mic (hidden if the browser lacks SpeechRecognition) -->
+  <button class="mic" id="mic-btn" type="button" aria-label="Check off tasks by voice" hidden>
+    <svg class="mic-glyph" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+         stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+      <rect x="9" y="2.5" width="6" height="11" rx="3" />
+      <path d="M6 11a6 6 0 0 0 12 0" />
+      <path d="M12 17v3" />
+      <path d="M8.5 20h7" />
+    </svg>
+  </button>
+
+  <!-- Toast container (success / no-match / error feedback) -->
+  <div class="toast-wrap" id="toast-wrap" aria-live="polite"></div>
+
   <script src="supabase.js"></script>
   <script src="tasks.js"></script>
   <script src="app.js"></script>

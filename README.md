@@ -3,7 +3,9 @@
 A single-page personal web app that tells me what I should be doing **right now**
 based on the day and time, shows my day's tasks (with suggested times), carries
 unfinished tasks forward, and lays the whole week out in a calendar. Check-offs
-persist to Supabase so they survive refreshes and sync across devices.
+persist to Supabase so they survive refreshes and sync across devices. I can also
+**check tasks off by voice** — tap the mic, say what I finished, and the matching
+tasks tick themselves.
 
 Mobile-first. Built to live on the iPhone home screen as a PWA. No framework,
 no build step — just static files.
@@ -24,6 +26,7 @@ no build step — just static files.
 | `manifest.webmanifest` | PWA manifest                                                     |
 | `icon.svg`             | App icon                                                         |
 | `schema.sql`           | Supabase `task_instances` table + RLS policies                   |
+| `supabase/functions/parse-voice/index.ts` | Edge Function — voice transcript → task_keys (Claude) |
 
 To change the schedule or tasks, edit **`tasks.js`** — it's plain data.
 
@@ -62,7 +65,34 @@ git push
 GitHub Pages rebuilds automatically (~30–60s). Pages requires a **public** repo
 on the free plan.
 
-### 3. Add to iPhone home screen
+### 3. Voice check-off — Edge Function
+
+The mic button needs the `parse-voice` Edge Function deployed, with your Anthropic
+API key set as a secret. This is the **only** place the key lives — it never
+reaches the browser.
+
+You'll need the [Supabase CLI](https://supabase.com/docs/guides/cli) and an
+[Anthropic API key](https://console.anthropic.com/).
+
+```bash
+# One-time: link this repo to your Supabase project (project ref from the dashboard URL)
+supabase login
+supabase link --project-ref zwzndwbcksggntlvgdag
+
+# Set the key as a secret (stays server-side)
+supabase secrets set ANTHROPIC_API_KEY=sk-ant-...
+
+# Deploy the function. --no-verify-jwt lets the app call it with the public
+# publishable key (the function is safe to expose: the secret stays on the server).
+supabase functions deploy parse-voice --no-verify-jwt
+```
+
+The function calls **Claude Haiku 4.5** (`claude-haiku-4-5`) once per voice command
+— a few hundred tokens each, so cost is negligible. Until it's deployed, the rest
+of the app works fine; tapping the mic just shows a "couldn't reach the voice
+service" toast.
+
+### 4. Add to iPhone home screen
 
 Open the live URL in **Safari** → **Share** → **Add to Home Screen**.
 
@@ -83,6 +113,15 @@ Open the live URL in **Safari** → **Share** → **Add to Home Screen**.
   `TODAY` pill; past days fade and show a `X of Y completed · Z carried forward`
   summary; future days look normal. Checking a task anywhere (today list or
   calendar) updates everywhere — it's one in-memory source of truth.
+- **Voice check-off** — tap the floating mic, say what you finished (e.g. *"I did
+  the morning creative and launched the Meta batch"*), and matching tasks tick
+  off. The browser transcribes the speech (Web Speech API); the transcript plus
+  the day's visible tasks go to a Supabase Edge Function that asks Claude which
+  `task_key`s were meant, and those are checked off through the normal sync path.
+  Already-completed tasks are left alone. The mic is hidden on browsers without
+  speech recognition (it works in Chrome and iOS Safari). **No API key ever
+  touches the browser** — the Anthropic key lives only in the Edge Function as a
+  Supabase secret. Needs the [Edge Function deployed](#3-voice-check-off--edge-function).
 - **Every minute** the now block recomputes. Crossing **midnight** rebuilds the
   day and re-pulls instances; yesterday's completed tasks drop off, unfinished
   ones become carryover.

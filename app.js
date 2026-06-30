@@ -287,6 +287,139 @@
     DB.setDismissed(key, date);
   }
 
+  // ── Toast ──────────────────────────────────────────────────────────────
+  let toastTimer = null;
+  function showToast(message, kind = 'info') {
+    const wrap = document.getElementById('toast-wrap');
+    if (!wrap) return;
+    wrap.innerHTML = '';
+    const el = document.createElement('div');
+    el.className = `toast ${kind}`;
+    el.textContent = message;
+    wrap.appendChild(el);
+    requestAnimationFrame(() => el.classList.add('show'));
+    if (toastTimer) clearTimeout(toastTimer);
+    toastTimer = setTimeout(() => {
+      el.classList.remove('show');
+      setTimeout(() => { if (el.parentNode) el.remove(); }, 250);
+    }, 3600);
+  }
+
+  // ── Voice check-off ────────────────────────────────────────────────────
+  // Web Speech API → transcript → parse-voice Edge Function (Claude) → keys →
+  // existing toggleComplete path. Matches today's tasks AND carried-over ones.
+  let recognition = null;
+  let micState = 'idle'; // 'idle' | 'listening' | 'processing'
+
+  function setMicState(s) {
+    micState = s;
+    const btn = document.getElementById('mic-btn');
+    if (!btn) return;
+    btn.classList.toggle('listening', s === 'listening');
+    btn.classList.toggle('processing', s === 'processing');
+  }
+
+  // Everything currently checkable: today's undismissed tasks + carryover.
+  // Map task_key → { label, instances:[{key,date}] } so one spoken key can
+  // resolve to the right (key,date) even when the same key is both today's and
+  // a week-old carryover.
+  function voiceCandidates() {
+    const map = new Map();
+    const add = (key, label, date) => {
+      if (!map.has(key)) map.set(key, { label, instances: [] });
+      map.get(key).instances.push({ key, date });
+    };
+    for (const t of tasksForDay(today.getDay())) {
+      if (stateOf(t.key, todayKey).dismissed) continue;
+      add(t.key, t.title, todayKey);
+    }
+    for (const t of carryoverList()) add(t.key, t.title, t.date);
+    return map;
+  }
+
+  // Check ON the matched keys (never toggle an already-completed task off).
+  function applyVoiceMatches(keys, candidates) {
+    const done = [];
+    for (const key of keys) {
+      const c = candidates.get(key);
+      if (!c) continue;
+      for (const inst of c.instances) {
+        if (!stateOf(inst.key, inst.date).completed) {
+          toggleComplete(inst.key, inst.date);
+          if (!done.includes(c.label)) done.push(c.label);
+        }
+      }
+    }
+    return done;
+  }
+
+  async function handleTranscript(transcript) {
+    const candidates = voiceCandidates();
+    const available = [...candidates].map(([task_key, v]) => ({ task_key, label: v.label }));
+    if (!available.length) { setMicState('idle'); showToast('No tasks to check off right now.', 'info'); return; }
+
+    setMicState('processing');
+    const keys = await DB.parseVoice(transcript, available);
+    setMicState('idle');
+
+    if (keys === null) { showToast("Couldn't reach the voice service. Try again.", 'error'); return; }
+    if (!keys.length) { showToast(`No task matched "${transcript}".`, 'info'); return; }
+
+    const done = applyVoiceMatches(keys, candidates);
+    if (!done.length) showToast('Those are already checked off.', 'info');
+    else showToast(`Checked off: ${done.join(', ')}`, 'success');
+  }
+
+  function setupVoice() {
+    const btn = document.getElementById('mic-btn');
+    if (!btn) return;
+    const SR = window.SpeechRecognition || window.webkitSpeechRecognition;
+    if (!SR || typeof DB.parseVoice !== 'function') { btn.hidden = true; return; }
+    btn.hidden = false;
+
+    recognition = new SR();
+    recognition.lang = 'en-US';
+    recognition.continuous = false;
+    recognition.interimResults = false;
+    recognition.maxAlternatives = 1;
+
+    let gotResult = false;
+
+    recognition.addEventListener('result', (e) => {
+      gotResult = true;
+      const transcript = (e.results[0][0].transcript || '').trim();
+      if (transcript) handleTranscript(transcript);
+      else { setMicState('idle'); showToast("Didn't catch that.", 'info'); }
+    });
+
+    recognition.addEventListener('end', () => {
+      // Ended without a result and not mid-parse → back to idle.
+      if (micState === 'listening' && !gotResult) setMicState('idle');
+    });
+
+    recognition.addEventListener('error', (e) => {
+      setMicState('idle');
+      if (e.error === 'not-allowed' || e.error === 'service-not-allowed') {
+        showToast('Microphone access denied. Enable it in settings.', 'error');
+      } else if (e.error === 'no-speech') {
+        showToast("Didn't hear anything. Try again.", 'info');
+      } else if (e.error === 'network') {
+        showToast('Speech recognition needs a connection.', 'error');
+      } else if (e.error !== 'aborted') {
+        showToast('Voice input failed. Try again.', 'error');
+      }
+    });
+
+    btn.addEventListener('click', () => {
+      if (micState === 'processing') return;
+      if (micState === 'listening') { recognition.stop(); return; } // tap again to stop
+      gotResult = false;
+      setMicState('listening');
+      try { recognition.start(); }
+      catch (_) { /* already started — ignore */ }
+    });
+  }
+
   // ── Data load ──────────────────────────────────────────────────────────
   function mergeRows(rows) {
     if (!rows) return; // offline — keep whatever we have
@@ -359,6 +492,7 @@
 
     document.getElementById('refresh-btn').addEventListener('click', manualRefresh);
     document.addEventListener('visibilitychange', () => { if (!document.hidden) manualRefresh(); });
+    setupVoice();
 
     const msToNextMinute = (60 - new Date().getSeconds()) * 1000;
     setTimeout(() => { tick(); setInterval(tick, 60 * 1000); }, msToNextMinute);

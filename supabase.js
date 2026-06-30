@@ -97,7 +97,28 @@
     );
   }
 
+  // Voice check-off — send a spoken transcript + the currently-visible tasks to
+  // the parse-voice Edge Function, which calls Claude (Haiku) server-side and
+  // returns the task_keys the user said they finished. Returns an array of keys,
+  // or null if the function is unreachable (so the UI can tell the difference
+  // between "no match" and "couldn't reach the service").
+  async function parseVoice(transcript, availableTasks) {
+    try {
+      const res = await fetch(`${SUPABASE_URL}/functions/v1/parse-voice`, {
+        method: 'POST',
+        headers: HEADERS,
+        body: JSON.stringify({ transcript, available_tasks: availableTasks }),
+      });
+      if (!res.ok) throw new Error(`POST ${res.status}`);
+      const data = await res.json();
+      return Array.isArray(data.task_keys) ? data.task_keys : [];
+    } catch (err) {
+      console.warn('[NOW] parseVoice failed:', err.message);
+      return null;
+    }
+  }
+
   window.NOW_DB = {
-    ensureInstances, fetchByDate, fetchCarryover, fetchWeek, setCompleted, setDismissed,
+    ensureInstances, fetchByDate, fetchCarryover, fetchWeek, setCompleted, setDismissed, parseVoice,
   };
 })();
