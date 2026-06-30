@@ -376,6 +376,25 @@
     return done;
   }
 
+  // Pick the most natural available voice. iOS ships free Premium/Enhanced
+  // voices (Settings → Accessibility → Spoken Content → Voices) that sound far
+  // better than the default — prefer those, then any English voice.
+  function pickBestVoice() {
+    const voices = window.speechSynthesis.getVoices();
+    if (!voices.length) return null;
+    const named = ['Ava (Premium)', 'Evan (Premium)', 'Zoe (Premium)', 'Nicky (Premium)', 'Tom (Premium)'];
+    for (const name of named) {
+      const v = voices.find((v) => v.name === name);
+      if (v) return v;
+    }
+    return (
+      voices.find((v) => v.name.includes('(Premium)') && v.lang.startsWith('en')) ||
+      voices.find((v) => v.name.includes('(Enhanced)') && v.lang.startsWith('en')) ||
+      voices.find((v) => v.lang === 'en-US') ||
+      voices[0]
+    );
+  }
+
   // Speak a reply aloud (best-effort; silently no-ops if TTS is unavailable).
   function speak(text) {
     if (!text || !('speechSynthesis' in window)) return;
@@ -383,9 +402,8 @@
       window.speechSynthesis.cancel();
       const u = new SpeechSynthesisUtterance(text);
       u.rate = 1.0; u.pitch = 1.0; u.lang = 'en-US';
-      const voices = window.speechSynthesis.getVoices();
-      const pref = voices.find((v) => v.name.includes('Samantha')) || voices.find((v) => v.lang === 'en-US');
-      if (pref) u.voice = pref;
+      const v = pickBestVoice();
+      if (v) u.voice = v;
       window.speechSynthesis.speak(u);
     } catch (_) { /* ignore */ }
   }
