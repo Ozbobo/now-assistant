@@ -65,11 +65,12 @@ git push
 GitHub Pages rebuilds automatically (~30–60s). Pages requires a **public** repo
 on the free plan.
 
-### 3. Voice check-off — Edge Function
+### 3. Voice — Edge Function
 
 The mic button needs the `parse-voice` Edge Function deployed, with your Anthropic
 API key set as a secret. This is the **only** place the key lives — it never
-reaches the browser.
+reaches the browser. The function parses each voice command into checked-off tasks
+and/or a spoken reply.
 
 You'll need the [Supabase CLI](https://supabase.com/docs/guides/cli) and an
 [Anthropic API key](https://console.anthropic.com/).
@@ -113,15 +114,24 @@ Open the live URL in **Safari** → **Share** → **Add to Home Screen**.
   `TODAY` pill; past days fade and show a `X of Y completed · Z carried forward`
   summary; future days look normal. Checking a task anywhere (today list or
   calendar) updates everywhere — it's one in-memory source of truth.
-- **Voice check-off** — tap the floating mic, say what you finished (e.g. *"I did
-  the morning creative and launched the Meta batch"*), and matching tasks tick
-  off. The browser transcribes the speech (Web Speech API); the transcript plus
-  the day's visible tasks go to a Supabase Edge Function that asks Claude which
-  `task_key`s were meant, and those are checked off through the normal sync path.
-  Already-completed tasks are left alone. The mic is hidden on browsers without
-  speech recognition (it works in Chrome and iOS Safari). **No API key ever
+- **Voice** — the floating mic handles **both commands and questions**, and Claude
+  talks back:
+  - *Check off* — *"I finished the morning creative and launched the Meta batch"* →
+    those tasks tick off.
+  - *Ask* — *"What should I be doing now?"*, *"What's next?"*, *"What's left today?"*,
+    *"Did I do the Meta batch yet?"* → Claude answers out loud.
+
+  The browser transcribes the speech (Web Speech API) and sends the transcript plus
+  the day's context (current block, next block, every task with its status) to a
+  Supabase Edge Function. Claude (Haiku 4.5) decides whether it's a check-off, a
+  question, or both, returns the matched `task_key`s and a short spoken `reply`;
+  matches are checked off through the normal sync path (already-done tasks are left
+  alone), and the reply is **spoken aloud** (browser text-to-speech) **and** shown
+  as a toast — so it works hands-free, hands-busy, or in a noisy room. Tapping the
+  mic again cancels any speech and listens fresh. The mic is hidden on browsers
+  without speech recognition (works in Chrome and iOS Safari). **No API key ever
   touches the browser** — the Anthropic key lives only in the Edge Function as a
-  Supabase secret. Needs the [Edge Function deployed](#3-voice-check-off--edge-function).
+  Supabase secret. Needs the [Edge Function deployed](#3-voice--edge-function).
 - **Every minute** the now block recomputes. Crossing **midnight** rebuilds the
   day and re-pulls instances; yesterday's completed tasks drop off, unfinished
   ones become carryover.

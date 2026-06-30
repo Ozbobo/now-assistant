@@ -97,21 +97,22 @@
     );
   }
 
-  // Voice check-off — send a spoken transcript + the currently-visible tasks to
-  // the parse-voice Edge Function, which calls Claude (Haiku) server-side and
-  // returns the task_keys the user said they finished. Returns an array of keys,
-  // or null if the function is unreachable (so the UI can tell the difference
-  // between "no match" and "couldn't reach the service").
-  async function parseVoice(transcript, availableTasks) {
+  // Voice — send a spoken transcript + the day's context (current/next block,
+  // task status) to the parse-voice Edge Function, which calls Claude (Haiku)
+  // server-side. Returns { action, task_keys, reply }, or null if the function
+  // is unreachable (so the UI can tell "service down" from a real reply). The
+  // function's own friendly error replies (which carry `reply`) are passed
+  // through so they still get spoken/shown.
+  async function parseVoice(transcript, context) {
     try {
       const res = await fetch(`${SUPABASE_URL}/functions/v1/parse-voice`, {
         method: 'POST',
         headers: HEADERS,
-        body: JSON.stringify({ transcript, available_tasks: availableTasks }),
+        body: JSON.stringify({ transcript, context }),
       });
-      if (!res.ok) throw new Error(`POST ${res.status}`);
-      const data = await res.json();
-      return Array.isArray(data.task_keys) ? data.task_keys : [];
+      const data = await res.json().catch(() => null);
+      if (data && (Array.isArray(data.task_keys) || typeof data.reply === 'string')) return data;
+      return res.ok ? data : null;
     } catch (err) {
       console.warn('[NOW] parseVoice failed:', err.message);
       return null;

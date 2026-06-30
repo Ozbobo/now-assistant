@@ -10,6 +10,7 @@
 
   const MONTHS = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
   const DOW = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
+  const DAY_NAMES = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
   const LONG_PRESS_MS = 500;
 
   // ── State ──────────────────────────────────────────────────────────────
@@ -305,11 +306,13 @@
     }, 3600);
   }
 
-  // ── Voice check-off ────────────────────────────────────────────────────
-  // Web Speech API → transcript → parse-voice Edge Function (Claude) → keys →
-  // existing toggleComplete path. Matches today's tasks AND carried-over ones.
+  // ── Voice: check-off + queries, with spoken replies ────────────────────
+  // Web Speech API transcribes → parse-voice Edge Function (Claude Haiku) →
+  // { action, task_keys, reply }. Matched keys check off via toggleComplete;
+  // the reply is spoken aloud (browser TTS) and shown as a toast.
   let recognition = null;
   let micState = 'idle'; // 'idle' | 'listening' | 'processing'
+  let speechPrimed = false;
 
   function setMicState(s) {
     micState = s;
@@ -320,21 +323,41 @@
   }
 
   // Everything currently checkable: today's undismissed tasks + carryover.
-  // Map task_key → { label, instances:[{key,date}] } so one spoken key can
-  // resolve to the right (key,date) even when the same key is both today's and
-  // a week-old carryover.
+  // Map task_key → { label, time, instances:[{key,date}] } so one spoken key
+  // resolves to the right (key,date) even when it's both today's and a week-old
+  // carryover.
   function voiceCandidates() {
     const map = new Map();
-    const add = (key, label, date) => {
-      if (!map.has(key)) map.set(key, { label, instances: [] });
+    const add = (key, label, time, date) => {
+      if (!map.has(key)) map.set(key, { label, time, instances: [] });
       map.get(key).instances.push({ key, date });
     };
     for (const t of tasksForDay(today.getDay())) {
       if (stateOf(t.key, todayKey).dismissed) continue;
-      add(t.key, t.title, todayKey);
+      add(t.key, t.title, t.time, todayKey);
     }
-    for (const t of carryoverList()) add(t.key, t.title, t.date);
+    for (const t of carryoverList()) add(t.key, t.title, t.time, t.date);
     return map;
+  }
+
+  // The context the Edge Function hands to Claude: clock, current/next block,
+  // and each task with its completion status.
+  function voiceContext(now, candidates) {
+    const { current, next, day } = computeBlocks(now);
+    const fmtBlock = (b) => ({ title: b.activity, start: fmt(b.start), end: fmt(b.end), note: b.note || '' });
+    const today_tasks = [...candidates].map(([task_key, v]) => ({
+      task_key,
+      label: v.label,
+      suggested_time: fmt(v.time),
+      completed: v.instances.every((i) => stateOf(i.key, i.date).completed),
+    }));
+    return {
+      current_time: fmt(minutesNow(now)),
+      current_day: DAY_NAMES[day],
+      current_block: fmtBlock(current),
+      next_block: fmtBlock(next),
+      today_tasks,
+    };
   }
 
   // Check ON the matched keys (never toggle an already-completed task off).
@@ -353,21 +376,54 @@
     return done;
   }
 
+  // Speak a reply aloud (best-effort; silently no-ops if TTS is unavailable).
+  function speak(text) {
+    if (!text || !('speechSynthesis' in window)) return;
+    try {
+      window.speechSynthesis.cancel();
+      const u = new SpeechSynthesisUtterance(text);
+      u.rate = 1.0; u.pitch = 1.0; u.lang = 'en-US';
+      const voices = window.speechSynthesis.getVoices();
+      const pref = voices.find((v) => v.name.includes('Samantha')) || voices.find((v) => v.lang === 'en-US');
+      if (pref) u.voice = pref;
+      window.speechSynthesis.speak(u);
+    } catch (_) { /* ignore */ }
+  }
+
+  // iOS only allows TTS after a user gesture — prime it (silently) on first tap.
+  function primeSpeech() {
+    if (speechPrimed || !('speechSynthesis' in window)) return;
+    speechPrimed = true;
+    try {
+      const u = new SpeechSynthesisUtterance(' ');
+      u.volume = 0;
+      window.speechSynthesis.speak(u);
+    } catch (_) { /* ignore */ }
+  }
+
   async function handleTranscript(transcript) {
     const candidates = voiceCandidates();
-    const available = [...candidates].map(([task_key, v]) => ({ task_key, label: v.label }));
-    if (!available.length) { setMicState('idle'); showToast('No tasks to check off right now.', 'info'); return; }
-
     setMicState('processing');
-    const keys = await DB.parseVoice(transcript, available);
+    const result = await DB.parseVoice(transcript, voiceContext(new Date(), candidates));
     setMicState('idle');
 
-    if (keys === null) { showToast("Couldn't reach the voice service. Try again.", 'error'); return; }
-    if (!keys.length) { showToast(`No task matched "${transcript}".`, 'info'); return; }
+    if (!result) { showToast("Couldn't reach the voice service. Try again.", 'error'); return; }
 
-    const done = applyVoiceMatches(keys, candidates);
-    if (!done.length) showToast('Those are already checked off.', 'info');
-    else showToast(`Checked off: ${done.join(', ')}`, 'success');
+    const done = Array.isArray(result.task_keys) && result.task_keys.length
+      ? applyVoiceMatches(result.task_keys, candidates)
+      : [];
+
+    const reply = typeof result.reply === 'string' ? result.reply.trim() : '';
+    if (reply) {
+      speak(reply);
+      showToast(reply, (done.length || result.action === 'complete') ? 'success' : 'info');
+    } else if (done.length) {
+      const msg = `Checked off: ${done.join(', ')}`;
+      speak(msg);
+      showToast(msg, 'success');
+    } else {
+      showToast(`No task matched "${transcript}".`, 'info');
+    }
   }
 
   function setupVoice() {
@@ -376,6 +432,12 @@
     const SR = window.SpeechRecognition || window.webkitSpeechRecognition;
     if (!SR || typeof DB.parseVoice !== 'function') { btn.hidden = true; return; }
     btn.hidden = false;
+
+    // Warm the TTS voice list (loads asynchronously in some browsers).
+    if ('speechSynthesis' in window) {
+      window.speechSynthesis.getVoices();
+      window.speechSynthesis.onvoiceschanged = () => window.speechSynthesis.getVoices();
+    }
 
     recognition = new SR();
     recognition.lang = 'en-US';
@@ -413,6 +475,9 @@
     btn.addEventListener('click', () => {
       if (micState === 'processing') return;
       if (micState === 'listening') { recognition.stop(); return; } // tap again to stop
+      // Cancel any in-progress speech + prime TTS within this user gesture (iOS).
+      if ('speechSynthesis' in window) window.speechSynthesis.cancel();
+      primeSpeech();
       gotResult = false;
       setMicState('listening');
       try { recognition.start(); }
