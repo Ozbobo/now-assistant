@@ -18,7 +18,24 @@
   <link rel="stylesheet" href="style.css" />
 </head>
 <body>
-  <div class="wrap">
+  <!-- Login (6-digit email code). Shown until a session exists. -->
+  <div class="login-view" id="login-view" hidden>
+    <div class="login-box">
+      <h1>NOW</h1>
+      <p class="login-sub">Sign in to your schedule.</p>
+      <input type="email" id="login-email" class="login-input" placeholder="your@email.com"
+             autocomplete="email" inputmode="email" />
+      <button type="button" id="login-send" class="login-btn">Send code</button>
+      <div class="login-code-row" id="login-code-row" hidden>
+        <input type="text" id="login-code" class="login-input" placeholder="6-digit code"
+               autocomplete="one-time-code" inputmode="numeric" maxlength="6" />
+        <button type="button" id="login-verify" class="login-btn">Verify</button>
+      </div>
+      <p class="login-status" id="login-status" aria-live="polite"></p>
+    </div>
+  </div>
+
+  <div class="wrap" id="app-wrap" hidden>
     <header class="masthead">
       <h1>NOW</h1>
       <span class="clock" id="clock">—</span>
@@ -46,6 +63,9 @@
     <!-- CARRIED OVER (rendered only when there are carryover tasks) -->
     <div id="carryover-block"></div>
 
+    <!-- THIS WEEK AT A GLANCE — 7-dot status strip -->
+    <div class="week-bar" id="week-bar"></div>
+
     <!-- TODAY'S TASKS -->
     <h2 class="section-title">Today's Tasks</h2>
     <div class="task-list" id="task-list"></div>
@@ -54,7 +74,13 @@
     <h2 class="section-title">This Week</h2>
     <div class="calendar" id="calendar"></div>
 
-    <button class="refresh" id="refresh-btn" type="button">↻ Refresh</button>
+    <!-- WEEKLY STATS (rendered when history exists) -->
+    <div id="weekly-stats"></div>
+
+    <footer class="appfoot">
+      <button class="refresh" id="refresh-btn" type="button">↻ Refresh</button>
+      <button class="signout" id="signout-btn" type="button">Sign out</button>
+    </footer>
   </div>
 
   <!-- Voice check-off — floating mic (hidden if the browser lacks SpeechRecognition) -->
@@ -71,8 +97,10 @@
   <!-- Toast container (success / no-match / error feedback) -->
   <div class="toast-wrap" id="toast-wrap" aria-live="polite"></div>
 
-  <script src="supabase.js"></script>
+  <!-- tasks.js + app.js (classic) define data and the engine; supabase.js (module)
+       runs last, wires auth + the data layer, and starts the app once signed in. -->
   <script src="tasks.js"></script>
   <script src="app.js"></script>
+  <script type="module" src="supabase.js"></script>
 </body>
 </html>

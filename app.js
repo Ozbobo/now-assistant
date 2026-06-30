@@ -6,7 +6,9 @@
   'use strict';
 
   const { blocksForDay, tasksForDay, DAY_LABEL, TASK_BY_KEY } = window.NOW_DATA;
-  const DB = window.NOW_DB;
+  // Assigned in start(): the auth+data module (supabase.js) defines window.NOW_DB
+  // and runs AFTER this classic script, so we can't read it at load time.
+  let DB = null;
 
   const MONTHS = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
   const DOW = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
@@ -268,6 +270,107 @@
     cal.querySelectorAll('.cal-row.tappable').forEach((row) => {
       row.addEventListener('click', () => toggleComplete(row.dataset.key, row.dataset.date));
     });
+
+    renderWeekBar(); // the compact dot strip tracks the same week
+  }
+
+  // ── Weekly stats: dot bar + history + rollup ───────────────────────────
+  // Status of one day this week, from its scheduled count vs. completions.
+  function weekDayStatus(d, dKey) {
+    const scheduled = tasksForDay(d.getDay()).length;
+    let completed = 0;
+    for (const t of tasksForDay(d.getDay())) {
+      if (stateOf(t.key, dKey).completed) completed++;
+    }
+    if (dKey > todayKey) return 'future';
+    if (scheduled > 0 && completed >= scheduled) return 'complete';
+    if (completed > 0) return 'partial';
+    if (dKey < todayKey) return 'zero';  // a past day with nothing done
+    return 'today';                      // today, nothing checked yet
+  }
+
+  // Compact Mon→Sun dot strip for the current week.
+  function renderWeekBar() {
+    const bar = document.getElementById('week-bar');
+    if (!bar) return;
+    const initials = ['M', 'T', 'W', 'T', 'F', 'S', 'S'];
+    let html = '';
+    for (let i = 0; i < 7; i++) {
+      const d = addDays(weekStart, i);
+      const dKey = dateKey(d);
+      const status = weekDayStatus(d, dKey);
+      html += `<div class="wb-day${dKey === todayKey ? ' wb-today' : ''}">
+        <span class="wb-dot wb-${status}" aria-hidden="true"></span>
+        <span class="wb-lbl">${initials[i]}</span>
+      </div>`;
+    }
+    bar.innerHTML = html;
+  }
+
+  // Summarise a week's instance rows → percentage, day counts, and a 7-char
+  // Mon..Sun status string (c|p|z|-) for the history dots.
+  function computeWeekStats(rows, weekStartStr) {
+    const start = parseKey(weekStartStr);
+    const completedByDate = {};
+    for (const r of rows || []) {
+      if (r.completed_at) completedByDate[r.assigned_date] = (completedByDate[r.assigned_date] || 0) + 1;
+    }
+    let daysComplete = 0, daysPartial = 0, daysZero = 0, totalSched = 0, totalDone = 0, days = '';
+    for (let i = 0; i < 7; i++) {
+      const d = addDays(start, i);
+      const scheduled = tasksForDay(d.getDay()).length;
+      const completed = completedByDate[dateKey(d)] || 0;
+      if (scheduled === 0) { days += '-'; continue; }
+      totalSched += scheduled;
+      totalDone += Math.min(completed, scheduled);
+      if (completed >= scheduled) { daysComplete++; days += 'c'; }
+      else if (completed > 0) { daysPartial++; days += 'p'; }
+      else { daysZero++; days += 'z'; }
+    }
+    const percentage = totalSched > 0 ? Math.round((totalDone / totalSched) * 100) : 0;
+    return { percentage, daysComplete, daysPartial, daysZero, days };
+  }
+
+  // Once per week boundary: roll last week into weekly_stats, then prune old
+  // daily rows (keeps storage tiny; carryover therefore resets each Monday).
+  async function rollupIfNeeded() {
+    if (!DB || typeof DB.getWeeklyStat !== 'function') return;
+    const lastMon = dateKey(addDays(weekStart, -7));
+    if (await DB.getWeeklyStat(lastMon)) return;            // already rolled up
+    const lastEnd = dateKey(addDays(parseKey(lastMon), 6));
+    const rows = await DB.fetchWeek(lastMon, lastEnd);
+    if (rows === null) return;                              // offline — try later
+    if (!rows.length) return;                               // nothing happened last week
+    const s = computeWeekStats(rows, lastMon);
+    await DB.insertWeeklyStat({
+      week_start_date: lastMon,
+      completion_percentage: s.percentage,
+      days_complete: s.daysComplete,
+      days_partial: s.daysPartial,
+      days_zero: s.daysZero,
+      days: s.days,
+    });
+    await DB.deleteInstancesBefore(dateKey(weekStart));
+  }
+
+  // History list of past weeks (newest first).
+  async function renderWeeklyStats() {
+    const wrap = document.getElementById('weekly-stats');
+    if (!wrap || !DB || typeof DB.getWeeklyStats !== 'function') return;
+    const stats = await DB.getWeeklyStats(12);
+    if (!stats || !stats.length) { wrap.innerHTML = ''; return; }
+    const SUFFIX = { c: 'c', p: 'p', z: 'z', '-': 'none' };
+    const dotFor = (ch) => `<span class="ws-dot ws-${SUFFIX[ch] || 'none'}" aria-hidden="true"></span>`;
+    const rows = stats.map((st) => {
+      const d = parseKey(st.week_start_date);
+      const dots = (st.days || '-------').split('').map(dotFor).join('');
+      return `<div class="ws-row">
+        <span class="ws-week">Week of ${monthDay(d)}</span>
+        <span class="ws-pct">${st.completion_percentage}%</span>
+        <span class="ws-dots">${dots}</span>
+      </div>`;
+    }).join('');
+    wrap.innerHTML = `<h2 class="section-title">Weekly Stats</h2><div class="ws-list">${rows}</div>`;
   }
 
   // ── Mutations (optimistic: update map + re-render, sync in background) ──
@@ -552,7 +655,7 @@
     if (dateKey(now) !== todayKey) {
       recompute(now);   // midnight (or week) rolled over
       renderAll(now);
-      loadData();
+      initData();       // re-check the weekly rollup at the boundary too
     } else {
       renderCards(now);
     }
@@ -562,16 +665,25 @@
     const now = new Date();
     recompute(now);
     renderAll(now);
-    loadData();
+    initData();
     const btn = document.getElementById('refresh-btn');
     btn.classList.add('spin');
     setTimeout(() => btn.classList.remove('spin'), 600);
   }
 
+  // Background data sync: roll last week up first (may prune old rows), then
+  // load current state, then refresh the weekly-stats history.
+  async function initData() {
+    await rollupIfNeeded();
+    await loadData();
+    renderWeeklyStats();
+  }
+
   function start() {
+    DB = window.NOW_DB;
     recompute(new Date());
     renderAll(today);           // instant render from static data, no spinner
-    loadData();                 // fill in DB state in the background
+    initData();                 // rollup + DB state + history in the background
 
     document.getElementById('refresh-btn').addEventListener('click', manualRefresh);
     document.addEventListener('visibilitychange', () => { if (!document.hidden) manualRefresh(); });
@@ -581,9 +693,7 @@
     setTimeout(() => { tick(); setInterval(tick, 60 * 1000); }, msToNextMinute);
   }
 
-  if (document.readyState === 'loading') {
-    document.addEventListener('DOMContentLoaded', start);
-  } else {
-    start();
-  }
+  // app.js no longer self-starts; the auth module (supabase.js) calls start()
+  // once a session exists, and re-shows the login view on sign-out.
+  window.NOW_APP = { start };
 })();

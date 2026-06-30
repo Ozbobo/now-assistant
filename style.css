@@ -474,6 +474,98 @@ body {
 .toast.success { background: var(--green); }
 .toast.error   { background: var(--hot); }
 
+/* ── Login (6-digit email code) ─────────────────────────────────────────── */
+.login-view {
+  position: fixed; inset: 0;
+  background: var(--paper);
+  display: flex; align-items: center; justify-content: center;
+  padding: 28px; z-index: 80;
+}
+.login-view[hidden] { display: none; }
+.login-box {
+  width: 100%; max-width: 340px;
+  display: flex; flex-direction: column; gap: 12px;
+}
+.login-box h1 {
+  font-family: var(--display); font-weight: 800;
+  font-size: 44px; letter-spacing: -0.04em;
+}
+.login-sub { color: var(--ink-soft); font-size: 15px; margin-bottom: 4px; }
+.login-input {
+  font-family: var(--text); font-size: 16px;
+  padding: 13px 14px; width: 100%;
+  border: 1.5px solid var(--ink); border-radius: 10px;
+  background: #fff; color: var(--ink);
+}
+.login-input:focus { outline: none; box-shadow: 0 0 0 3px rgba(255, 90, 31, 0.25); }
+.login-btn {
+  font-family: var(--display); font-weight: 800; font-size: 15px;
+  letter-spacing: -0.01em; padding: 13px 14px;
+  border: none; border-radius: 10px;
+  background: var(--ink); color: var(--paper);
+  cursor: pointer; -webkit-tap-highlight-color: transparent;
+}
+.login-btn:active { transform: scale(0.98); }
+.login-btn:disabled { opacity: 0.5; }
+.login-code-row { display: flex; flex-direction: column; gap: 12px; }
+.login-code-row[hidden] { display: none; }
+.login-status { font-size: 13px; min-height: 18px; color: var(--ink-soft); }
+.login-status.ok  { color: var(--green); }
+.login-status.err { color: var(--hot); }
+
+/* ── Week-at-a-glance dot bar ───────────────────────────────────────────── */
+.week-bar {
+  display: flex; justify-content: space-between; gap: 6px;
+  margin: 4px 0 24px;
+}
+.week-bar:empty { display: none; }
+.wb-day { display: flex; flex-direction: column; align-items: center; gap: 6px; flex: 1; }
+.wb-dot { width: 13px; height: 13px; border-radius: 50%; background: rgba(28, 28, 28, 0.16); }
+.wb-lbl {
+  font-family: var(--display); font-weight: 700; font-size: 11px;
+  letter-spacing: 0.04em; color: var(--ink-soft);
+}
+.wb-complete { background: var(--green); }
+.wb-partial  { background: var(--sun); }
+.wb-zero     { background: var(--hot); }
+.wb-today .wb-dot { box-shadow: 0 0 0 3px rgba(20, 23, 26, 0.18); }
+.wb-today .wb-lbl { color: var(--ink); }
+
+/* ── Weekly stats history ───────────────────────────────────────────────── */
+#weekly-stats:empty { display: none; }
+.ws-list { display: flex; flex-direction: column; }
+.ws-row {
+  display: flex; align-items: center; gap: 12px;
+  padding: 11px 0;
+  border-top: 1px solid rgba(28, 28, 28, 0.08);
+}
+.ws-row:first-child { border-top: none; }
+.ws-week { font-size: 14px; font-weight: 600; flex: 1; min-width: 0; }
+.ws-pct {
+  font-family: var(--display); font-weight: 800; font-size: 15px;
+  font-variant-numeric: tabular-nums; min-width: 44px; text-align: right;
+}
+.ws-dots { display: flex; gap: 4px; }
+.ws-dot { width: 9px; height: 9px; border-radius: 50%; background: rgba(28, 28, 28, 0.16); }
+.ws-c { background: var(--green); }
+.ws-p { background: var(--sun); }
+.ws-z { background: var(--hot); }
+.ws-none { background: rgba(28, 28, 28, 0.16); }
+
+/* ── Footer (refresh + sign out) ────────────────────────────────────────── */
+.appfoot {
+  display: flex; align-items: center; justify-content: space-between;
+  gap: 12px; margin-top: 30px;
+}
+.appfoot .refresh { margin: 0; }
+.signout {
+  font-family: var(--display); font-weight: 700; font-size: 13px;
+  background: none; border: none; color: var(--ink-soft);
+  cursor: pointer; text-decoration: underline; padding: 8px;
+  -webkit-tap-highlight-color: transparent;
+}
+.signout:active { color: var(--ink); }
+
 /* ── Larger screens ─────────────────────────────────────────────────────── */
 @media (min-width: 600px) {
   body { padding-left: 28px; padding-right: 28px; }

@@ -2,10 +2,12 @@
 
 A single-page personal web app that tells me what I should be doing **right now**
 based on the day and time, shows my day's tasks (with suggested times), carries
-unfinished tasks forward, and lays the whole week out in a calendar. Check-offs
-persist to Supabase so they survive refreshes and sync across devices. I can also
-**check tasks off by voice** — tap the mic, say what I finished, and the matching
-tasks tick themselves.
+unfinished tasks forward, and lays the whole week out in a calendar. Each person
+**signs in with their email** (a 6-digit code), so check-offs are private and
+persist to Supabase across devices. A **weekly-stats rollup** tracks completion
+over time (a 7-dot week bar + a history list). I can also **check tasks off — and
+ask questions — by voice**: tap the mic, say what I finished or ask "what's next?",
+and Claude checks tasks off and answers out loud.
 
 Mobile-first. Built to live on the iPhone home screen as a PWA. No framework,
 no build step — just static files.
@@ -22,7 +24,7 @@ no build step — just static files.
 | `style.css`            | Design tokens, card states, checkbox/calendar styling            |
 | `tasks.js`             | **Data only** — time blocks, per-day tasks + suggested times     |
 | `app.js`               | Engine — now/next, today list, carryover, calendar, sync         |
-| `supabase.js`          | Supabase URL + key + REST helpers (fail-silent if offline)       |
+| `supabase.js`          | **Auth + data layer** — Supabase client (CDN module): email-code login, user-scoped data, weekly stats |
 | `manifest.webmanifest` | PWA manifest                                                     |
 | `icon.svg`             | App icon                                                         |
 | `schema.sql`           | Supabase `task_instances` table + RLS policies                   |
@@ -34,23 +36,31 @@ To change the schedule or tasks, edit **`tasks.js`** — it's plain data.
 
 ## Setup
 
-### 1. Supabase
+### 1. Supabase — database + auth
 
-The URL and key are already wired into `supabase.js`. Create the table:
+The URL and publishable key are already wired into `supabase.js`. Four one-time
+steps in the dashboard:
 
-1. Open your project → **SQL Editor** → **New query**.
-2. Paste the contents of [`schema.sql`](./schema.sql) and click **Run**.
+**a. Database** — SQL Editor → New query → paste [`schema.sql`](./schema.sql) → Run.
+This **drops the old single-user tables** and creates `task_instances` (now scoped
+to `user_id`) and `weekly_stats`, both with Row Level Security so each account only
+sees its own rows. Safe to re-run.
 
-That creates `task_instances`, its indexes, enables Row Level Security, and adds
-policies letting the `anon` (publishable) key read/insert/update rows. Safe to
-re-run. (It also drops the old v1 `task_completions` table, which held no data.)
+**b. Enable email auth** — Authentication → Sign In / Providers → enable **Email**.
 
-> The publishable key in `supabase.js` is meant to be public — that's what it's
-> for. Access is constrained by the RLS policies. Never put the `service_role`
-> key in this repo.
+**c. Send a code, not a link** — Authentication → Email Templates → **Magic Link**:
+edit the body to include the code token `{{ .Token }}` (e.g. *"Your NOW code is
+`{{ .Token }}`"*). This makes the login email deliver a 6-digit code, which logs in
+reliably inside the iPhone home-screen app (a magic link would open Safari instead).
 
-Until you run this, the app still works — check-offs just stay in memory and
-don't persist (you'll see fail-silent `404` warnings in the console).
+**d. URL config** — Authentication → URL Configuration → set Site URL and add a
+Redirect URL of `https://ozbobo.github.io/now-assistant/`.
+
+> The publishable key in `supabase.js` is public by design; RLS (`auth.uid() =
+> user_id`) constrains access. Never put the `service_role` key in this repo.
+
+Each person signs in once per device with their email; their data and stats are
+private. The schedule itself (in `tasks.js`) is shared by all users for now.
 
 ### 2. Deploy to GitHub Pages
 
@@ -101,6 +111,10 @@ Open the live URL in **Safari** → **Share** → **Add to Home Screen**.
 
 ## How it works
 
+- **Accounts** — on first visit you sign in with your email and a 6-digit code. The
+  session is stored on-device (you stay signed in), and every read/write is scoped to
+  your account by RLS, so multiple people share the app with private data. Sign out
+  from the footer.
 - **Now / Up next** are computed from the device's local clock (`new Date()`).
 - **Today's Tasks** show the day's tasks sorted by **suggested time**, each with
   a checkbox. Checking upserts a `task_instances` row (`completed_at = now()`).
@@ -114,6 +128,11 @@ Open the live URL in **Safari** → **Share** → **Add to Home Screen**.
   `TODAY` pill; past days fade and show a `X of Y completed · Z carried forward`
   summary; future days look normal. Checking a task anywhere (today list or
   calendar) updates everywhere — it's one in-memory source of truth.
+- **Weekly stats** — a compact 7-dot bar (Mon→Sun: green all-done, amber partial, red
+  a missed day, dim today/future) sits above today's tasks. On the first load of a new
+  week, the previous week is summarised into `weekly_stats` (one row: completion % +
+  per-day breakdown) and its daily rows are pruned — so storage stays tiny and
+  **carryover resets each Monday**. Past weeks show in a "Weekly Stats" history list.
 - **Voice** — the floating mic handles **both commands and questions**, and Claude
   talks back:
   - *Check off* — *"I finished the morning creative and launched the Meta batch"* →
