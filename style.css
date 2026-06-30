@@ -507,8 +507,10 @@ body {
 }
 .login-btn:active { transform: scale(0.98); }
 .login-btn:disabled { opacity: 0.5; }
-.login-code-row { display: flex; flex-direction: column; gap: 12px; }
-.login-code-row[hidden] { display: none; }
+.login-btn-alt {
+  background: none; color: var(--ink);
+  border: 1.5px solid var(--ink);
+}
 .login-status { font-size: 13px; min-height: 18px; color: var(--ink-soft); }
 .login-status.ok  { color: var(--green); }
 .login-status.err { color: var(--hot); }

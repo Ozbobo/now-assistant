@@ -4,7 +4,7 @@
 //   1. creates the authed Supabase client (publishable key + the user's JWT),
 //   2. exposes the same window.NOW_DB interface app.js already uses (now
 //      user-scoped via RLS) plus weekly-stats helpers,
-//   3. gates the app behind a 6-digit email-code login and starts app.js once a
+//   3. gates the app behind an email + password login and starts app.js once a
 //      session exists.
 //
 // The publishable key is public by design; RLS (auth.uid() = user_id) isolates
@@ -164,49 +164,47 @@ window.NOW_AUTH = { signOut };
 
 function wireLogin() {
   const emailInput = $('login-email');
-  const codeInput = $('login-code');
-  const sendBtn = $('login-send');
-  const verifyBtn = $('login-verify');
-  const codeRow = $('login-code-row');
+  const passInput = $('login-password');
+  const signinBtn = $('login-signin');
+  const signupBtn = $('login-signup');
   const status = $('login-status');
-  if (!emailInput || !sendBtn) return;
+  if (!emailInput || !passInput) return;
 
-  let pendingEmail = '';
   const setStatus = (msg, kind = '') => {
     if (!status) return;
     status.textContent = msg;
     status.className = 'login-status' + (kind ? ' ' + kind : '');
   };
+  const creds = () => ({ email: emailInput.value.trim(), password: passInput.value });
 
-  sendBtn.addEventListener('click', async () => {
-    const email = emailInput.value.trim();
-    if (!email) { setStatus('Enter your email.', 'err'); return; }
-    sendBtn.disabled = true;
-    setStatus('Sending code…');
-    const { error } = await sb.auth.signInWithOtp({ email });
-    sendBtn.disabled = false;
-    if (error) { setStatus("Couldn't send the code. Try again.", 'err'); return; }
-    pendingEmail = email;
-    if (codeRow) codeRow.hidden = false;
-    if (codeInput) codeInput.focus();
-    setStatus('Check your email for a 6-digit code.', 'ok');
-  });
-
-  const verify = async () => {
-    const token = (codeInput && codeInput.value || '').trim();
-    if (!pendingEmail) { setStatus('Send a code first.', 'err'); return; }
-    if (!token) { setStatus('Enter the code from your email.', 'err'); return; }
-    if (verifyBtn) verifyBtn.disabled = true;
-    setStatus('Verifying…');
-    const { error } = await sb.auth.verifyOtp({ email: pendingEmail, token, type: 'email' });
-    if (verifyBtn) verifyBtn.disabled = false;
-    if (error) { setStatus('That code didn’t work. Try again.', 'err'); return; }
+  async function signIn() {
+    const { email, password } = creds();
+    if (!email || !password) { setStatus('Enter your email and password.', 'err'); return; }
+    if (signinBtn) signinBtn.disabled = true;
+    setStatus('Signing in…');
+    const { error } = await sb.auth.signInWithPassword({ email, password });
+    if (signinBtn) signinBtn.disabled = false;
+    if (error) { setStatus('Wrong email or password. New here? Create an account.', 'err'); return; }
     // The SIGNED_IN handler takes over from here.
-  };
+  }
 
-  if (verifyBtn) verifyBtn.addEventListener('click', verify);
-  if (codeInput) codeInput.addEventListener('keydown', (e) => { if (e.key === 'Enter') verify(); });
-  emailInput.addEventListener('keydown', (e) => { if (e.key === 'Enter') sendBtn.click(); });
+  async function signUp() {
+    const { email, password } = creds();
+    if (!email || !password) { setStatus('Enter an email and a password.', 'err'); return; }
+    if (password.length < 6) { setStatus('Password must be at least 6 characters.', 'err'); return; }
+    if (signupBtn) signupBtn.disabled = true;
+    setStatus('Creating your account…');
+    const { data, error } = await sb.auth.signUp({ email, password });
+    if (signupBtn) signupBtn.disabled = false;
+    if (error) { setStatus(error.message || "Couldn't create the account.", 'err'); return; }
+    // With email confirmation OFF, signUp returns a session and SIGNED_IN fires.
+    // If it's still ON, there's no session — tell the user to disable it / check mail.
+    if (!data.session) { setStatus('Account made. Now tap Sign in.', 'ok'); return; }
+  }
+
+  if (signinBtn) signinBtn.addEventListener('click', signIn);
+  if (signupBtn) signupBtn.addEventListener('click', signUp);
+  passInput.addEventListener('keydown', (e) => { if (e.key === 'Enter') signIn(); });
 }
 
 sb.auth.onAuthStateChange((event, session) => {

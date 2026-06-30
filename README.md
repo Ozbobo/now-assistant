@@ -3,7 +3,7 @@
 A single-page personal web app that tells me what I should be doing **right now**
 based on the day and time, shows my day's tasks (with suggested times), carries
 unfinished tasks forward, and lays the whole week out in a calendar. Each person
-**signs in with their email** (a 6-digit code), so check-offs are private and
+**signs in with an email + password**, so check-offs are private and
 persist to Supabase across devices. A **weekly-stats rollup** tracks completion
 over time (a 7-dot week bar + a history list). I can also **check tasks off — and
 ask questions — by voice**: tap the mic, say what I finished or ask "what's next?",
@@ -38,7 +38,7 @@ To change the schedule or tasks, edit **`tasks.js`** — it's plain data.
 
 ### 1. Supabase — database + auth
 
-The URL and publishable key are already wired into `supabase.js`. Four one-time
+The URL and publishable key are already wired into `supabase.js`. Two one-time
 steps in the dashboard:
 
 **a. Database** — SQL Editor → New query → paste [`schema.sql`](./schema.sql) → Run.
@@ -46,21 +46,17 @@ This **drops the old single-user tables** and creates `task_instances` (now scop
 to `user_id`) and `weekly_stats`, both with Row Level Security so each account only
 sees its own rows. Safe to re-run.
 
-**b. Enable email auth** — Authentication → Sign In / Providers → enable **Email**.
-
-**c. Send a code, not a link** — Authentication → Email Templates → **Magic Link**:
-edit the body to include the code token `{{ .Token }}` (e.g. *"Your NOW code is
-`{{ .Token }}`"*). This makes the login email deliver a 6-digit code, which logs in
-reliably inside the iPhone home-screen app (a magic link would open Safari instead).
-
-**d. URL config** — Authentication → URL Configuration → set Site URL and add a
-Redirect URL of `https://ozbobo.github.io/now-assistant/`.
+**b. Email + password (no emails)** — Authentication → Sign In / Providers →
+**Email**: make sure it's enabled, then turn **OFF "Confirm email"**. With
+confirmation off, an account is usable the instant it's created — so the app uses a
+plain email + password and **nothing is ever emailed** (no SMTP, no rate limits, no
+codes). Passwords are hashed by Supabase; the app never stores them.
 
 > The publishable key in `supabase.js` is public by design; RLS (`auth.uid() =
 > user_id`) constrains access. Never put the `service_role` key in this repo.
 
-Each person signs in once per device with their email; their data and stats are
-private. The schedule itself (in `tasks.js`) is shared by all users for now.
+Each person creates an account (email + password) once per device; their data and
+stats are private. The schedule itself (in `tasks.js`) is shared by all users.
 
 ### 2. Deploy to GitHub Pages
 
@@ -111,10 +107,10 @@ Open the live URL in **Safari** → **Share** → **Add to Home Screen**.
 
 ## How it works
 
-- **Accounts** — on first visit you sign in with your email and a 6-digit code. The
-  session is stored on-device (you stay signed in), and every read/write is scoped to
-  your account by RLS, so multiple people share the app with private data. Sign out
-  from the footer.
+- **Accounts** — on first visit you create an account with an email + password (no
+  email is sent — "Confirm email" is off in Supabase). The session is stored on-device
+  (you stay signed in), and every read/write is scoped to your account by RLS, so
+  multiple people share the app with private data. Sign out from the footer.
 - **Now / Up next** are computed from the device's local clock (`new Date()`).
 - **Today's Tasks** show the day's tasks sorted by **suggested time**, each with
   a checkbox. Checking upserts a `task_instances` row (`completed_at = now()`).

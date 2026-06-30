@@ -25,12 +25,10 @@
       <p class="login-sub">Sign in to your schedule.</p>
       <input type="email" id="login-email" class="login-input" placeholder="your@email.com"
              autocomplete="email" inputmode="email" />
-      <button type="button" id="login-send" class="login-btn">Send code</button>
-      <div class="login-code-row" id="login-code-row" hidden>
-        <input type="text" id="login-code" class="login-input" placeholder="6-digit code"
-               autocomplete="one-time-code" inputmode="numeric" maxlength="6" />
-        <button type="button" id="login-verify" class="login-btn">Verify</button>
-      </div>
+      <input type="password" id="login-password" class="login-input" placeholder="password"
+             autocomplete="current-password" />
+      <button type="button" id="login-signin" class="login-btn">Sign in</button>
+      <button type="button" id="login-signup" class="login-btn login-btn-alt">Create account</button>
       <p class="login-status" id="login-status" aria-live="polite"></p>
     </div>
   </div>
